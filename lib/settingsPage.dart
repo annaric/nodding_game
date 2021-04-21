@@ -20,7 +20,11 @@ class _SettingsPageState extends State<SettingsPage> {
   String _yAxis = "null";
   String _zAxis = "null";
   Timer _timer;
-  String _movement;
+  String _movement = "";
+  bool movementNotLeftBefore= true;
+  bool movementNotRightBefore= true;
+  bool movementNotDownBefore= true;
+  bool movementNotUpBefore= true;
   StreamSubscription subscription;
 
   void initState() {
@@ -72,6 +76,7 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _listenToESenseEvents() async {
+    ESenseManager.setSamplingRate(20);
     ESenseManager.eSenseEvents.listen((event) {
       print('ESENSE event: $event');
 
@@ -112,77 +117,59 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   void _startListenToSensorEvents() async {
-    bool firstCheckPassed = false;
-    SensorEvent lastEvent;
-    String currentMovement = "";
+    print("got into start listening to sensor events");
     ESenseManager.setSamplingRate(20);
     var connected = ESenseManager.isConnected();
     connected.then((value) =>
     {
       subscription = ESenseManager.sensorEvents.listen(
             (event) {
-          List<int> values = event.accel;
+          List<int> values = event.gyro;
+          int x = values[0];
+          int z = values[2];
+          String movement = "";
 
-          if (lastEvent == null) { lastEvent = event;}
-          else {
-            String firstState = checkFirstState(lastEvent, event);
-            String secondState = checkSecondState(lastEvent, event);
-            if (!firstCheckPassed && firstState != null) {
-              firstCheckPassed = true;
-              Timer(Duration(milliseconds: 500), () {
-                print("firstCheckPassed = false");
-                firstCheckPassed = false;
-              });
-            } else if (firstCheckPassed && secondState != null) {
-              firstCheckPassed = false;
-              if (secondState == firstState) {
-                currentMovement = secondState;
-              }
+          if (x < - 4000) {
+            if (this.movementNotRightBefore && int.parse(_xAxis) > -4000) {
+              movement = "right";
+              this.movementNotLeftBefore = false;
+            } else {
+              this.movementNotRightBefore = true;
+            }
+          } else if (x > 4000) {
+            if (this.movementNotLeftBefore && int.parse(_xAxis) < 4000) {
+              movement = "left";
+              this.movementNotRightBefore = false;
+            } else {
+              this.movementNotLeftBefore = true;
+            }
+          } else if (z > 4000) {
+            if (this.movementNotUpBefore && int.parse(_zAxis) < 4000) {
+              movement = "down";
+              this.movementNotDownBefore = false;
+            } else {
+              this.movementNotUpBefore = true;
+            }
+          } else  if (z < -4000) {
+            if (this.movementNotDownBefore && int.parse(_zAxis) > -4000) {
+              movement = "up";
+              this.movementNotUpBefore = false;
+            } else {
+              this.movementNotDownBefore = true;
             }
           }
-          lastEvent = event;
-
+          print(movement);
           setState(() {
             _xAxis = values[0].toString();
             _yAxis = values[1].toString();
             _zAxis = values[2].toString();
-            if (currentMovement != "") {
-              _movement = currentMovement;
+            if (movement != "") {
+              _movement = movement;
             }
           });
         },
       )
     });
-  }
-
-  String checkFirstState(SensorEvent lastEvent, SensorEvent event) {
-    if (lastEvent.gyro[2] - event.gyro[2] < -4000) {
-      print("NodeDown first");
-      return "NodeDown";
-    } else if (lastEvent.gyro[1] - event.gyro[1] < -4000) {
-      print("NodeLeft first");
-      return "NodeLeft";
-    } else if (lastEvent.gyro[1] - event.gyro[1] > 4000) {
-      print("NodeRight first");
-      return "NodeRight";
-    } else {
-      return "";
-    }
-  }
-
-  String checkSecondState(SensorEvent lastEvent, SensorEvent event) {
-    if (lastEvent.gyro[2] - event.gyro[2] > 6000) {
-      print("NodeDown second");
-      return "NodeDown";
-    } else if (lastEvent.gyro[1] - event.gyro[1] > 6000) {
-      print("NodeLeft second");
-      return "NodeLeft";
-    } else if (lastEvent.gyro[1] - event.gyro[1] < -6000) {
-      print("NodeRight second");
-      return "NodeRight";
-    } else {
-      return "";
-    }
   }
 
   void _pauseListenToSensorEvents() async {
@@ -241,7 +228,7 @@ class _SettingsPageState extends State<SettingsPage> {
               Text('eSense x Axis: \t$_xAxis', style: new TextStyle(fontFamily: 'Roboto')),
               Text('eSense y Axis: \t$_yAxis', style: new TextStyle(fontFamily: 'Roboto')),
               Text('eSense z Axis: \t$_zAxis', style: new TextStyle(fontFamily: 'Roboto')),
-              Text('eSense last movement: \t$_movement', style: new TextStyle(fontFamily: 'Roboto')),
+              Text('eSense movement: \t$_movement', style: new TextStyle(fontFamily: 'Roboto')),
     ]));
   }
 
