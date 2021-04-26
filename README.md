@@ -1,4 +1,4 @@
-# nodding game
+# Nodding game
 
 This Game is a fun game to challenge you and your friends. It is build for the eSense Earables, but you can also play it without them.
 
